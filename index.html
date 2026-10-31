@@ -10,14 +10,20 @@
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <!-- Babel para compilar JSX en el navegador -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        @media print {
+            body { background: white !important; }
+            button, header div:last-child { display: none !important; }
+            .shadow-sm, .shadow-2xl { box-shadow: none !important; border: none !important; }
+        }
+    </style>
 </head>
 <body class="bg-slate-50 text-slate-800 font-sans">
     <div id="root"></div>
 
     <script type="text/babel">
         function App() {
-            // Base inicial exacta de 6 colaboradores con opción de agregar/quitar
             const [collaborators, setCollaborators] = React.useState([
                 { id: '1', name: 'Juan Pérez', role: 'Operador Pista' },
                 { id: '2', name: 'María Gómez', role: 'Supervisora' },
@@ -32,11 +38,9 @@
             const [isSettingsOpen, setIsSettingsOpen] = React.useState(false);
             const [notification, setNotification] = React.useState(null);
 
-            // Inputs para agregar nuevo colaborador
             const [newName, setNewName] = React.useState('');
             const [newRole, setNewRole] = React.useState('');
 
-            // Horarios editables de cada turno
             const [shiftTimes, setShiftTimes] = React.useState({
                 M: { name: 'Mañana', start: '06:00', end: '14:00', color: 'bg-emerald-100 text-emerald-900 border-emerald-300' },
                 I: { name: 'Intermedio', start: '10:00', end: '18:00', color: 'bg-teal-100 text-teal-900 border-teal-300' },
@@ -45,12 +49,11 @@
                 OFF: { name: 'Libre', start: 'Descanso', end: '', color: 'bg-slate-100 text-slate-700 border-slate-300' }
             });
 
-            // Requerimientos configurables desde el modal
             const [requirements, setRequirements] = React.useState({
                 M: 2,
                 I: 1,
                 T: 2,
-                N: 1 // Máximo 1 estricto por noche
+                N: 1 
             });
 
             const [enableIntermediate, setEnableIntermediate] = React.useState(true);
@@ -102,7 +105,6 @@
                 }));
             };
 
-            // ALGORITMO AUTOMÁTICO CON REGLAS ESTRICTAS
             const executeAutoGeneration = () => {
                 const newSch = {};
                 collaborators.forEach(c => { newSch[c.id] = {}; });
@@ -110,19 +112,16 @@
                 const activeKeys = ['M', 'T', 'N'];
                 if (enableIntermediate) activeKeys.push('I');
 
-                // 1. Asignar un día libre por semana a cada colaborador (distribuido)
                 collaborators.forEach((c, idx) => {
                     const offDayIndex = idx % 7; 
                     newSch[c.id][offDayIndex] = 'OFF';
                 });
 
-                // 2. Generación día por día
                 days.forEach(day => {
                     const dayId = day.id;
                     const available = collaborators.filter(c => newSch[c.id][dayId] !== 'OFF');
                     const assignedToday = {};
 
-                    // REGLA: Si el día anterior hizo Noche, hoy obligatoriamente tiene LIBRE
                     available.forEach(c => {
                         if (dayId > 0 && schedule[c.id]?.[dayId - 1] === 'N') {
                             newSch[c.id][dayId] = 'OFF';
@@ -130,14 +129,12 @@
                         }
                     });
 
-                    // REGLA: Máximo 1 persona en turno de noche por día
                     const nightCandidate = available.find(c => !assignedToday[c.id]);
                     if (nightCandidate) {
                         newSch[nightCandidate.id][dayId] = 'N';
                         assignedToday[nightCandidate.id] = 'N';
                     }
 
-                    // Asignar el resto de turnos activos según las cuotas del modal
                     activeKeys.forEach(shiftKey => {
                         if (shiftKey === 'N') return; 
                         const needed = requirements[shiftKey] || 0;
@@ -156,7 +153,6 @@
                         }
                     });
 
-                    // Rellenar espacios restantes
                     available.forEach(c => {
                         if (!assignedToday[c.id]) {
                             const prev = dayId > 0 ? newSch[c.id][dayId - 1] : null;
@@ -174,9 +170,12 @@
                 showMsg('¡Horarios generados correctamente con reglas de descanso post-noche!');
             };
 
+            const exportToPDF = () => {
+                window.print();
+            };
+
             return (
                 <div className="min-h-screen p-4 max-w-7xl mx-auto space-y-6">
-                    {/* Alertas */}
                     {notification && (
                         <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-xl shadow-xl text-sm font-bold border ${
                             notification.type === 'error' ? 'bg-rose-50 text-[#E30613] border-rose-300' : 'bg-emerald-50 text-[#008751] border-emerald-300'
@@ -185,7 +184,6 @@
                         </div>
                     )}
 
-                    {/* HEADER PUMA ENERGY */}
                     <header className="bg-white p-4 rounded-2xl shadow-sm border flex flex-col md:flex-row justify-between items-center gap-4">
                         <div className="flex items-center space-x-3">
                             <div className="w-11 h-11 rounded-xl bg-[#008751] flex items-center justify-center text-white font-black text-2xl shadow-md border-2 border-[#E30613]">
@@ -199,12 +197,18 @@
                             </div>
                         </div>
 
-                        <div className="flex items-center space-x-2">
+                        <div className="flex items-center space-x-2 flex-wrap gap-y-2">
+                            <button
+                                onClick={exportToPDF}
+                                className="bg-slate-800 hover:bg-slate-900 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 shadow"
+                            >
+                                📄 Exportar PDF
+                            </button>
                             <button
                                 onClick={() => setIsSettingsOpen(true)}
                                 className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-1.5"
                             >
-                                ⚙️ Editar Horas de Turnos
+                                ⚙️ Editar Horas
                             </button>
                             <button
                                 onClick={() => setIsModalOpen(true)}
@@ -280,7 +284,7 @@
                         </div>
                     )}
 
-                    {/* GESTIÓN DE PLANTILLA (AGREGAR / QUITAR) */}
+                    {/* GESTIÓN DE PLANTILLA */}
                     <div className="bg-white rounded-2xl shadow-sm border p-4 space-y-4">
                         <h2 className="text-xs font-black uppercase text-slate-500 tracking-wider">Administrar Plantilla (Base 6 Colaboradores)</h2>
                         <form onSubmit={handleAddCollab} className="flex flex-col sm:flex-row gap-2">
