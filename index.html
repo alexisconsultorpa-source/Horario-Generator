@@ -13,9 +13,32 @@
     <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <style>
         @media print {
-            body { background: white !important; }
-            button, header div:last-child { display: none !important; }
-            .shadow-sm, .shadow-2xl { box-shadow: none !important; border: none !important; }
+            @page {
+                size: letter portrait;
+                margin: 0.5in;
+            }
+            body { 
+                background: white !important; 
+                font-size: 11px !important;
+            }
+            button, .no-print { 
+                display: none !important; 
+            }
+            .shadow-sm, .shadow-2xl, .border { 
+                box-shadow: none !important; 
+                border-color: #cbd5e1 !important; 
+            }
+            input {
+                border: none !important;
+                background: transparent !important;
+                padding: 0 !important;
+            }
+            .print-container {
+                width: 100% !important;
+                max-width: 100% !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
         }
     </style>
 </head>
@@ -24,6 +47,12 @@
 
     <script type="text/babel">
         function App() {
+            // Configuración de la Estación y Fechas
+            const [stationName, setStationName] = React.useState('Puma Estación Central');
+            const [managerName, setManagerName] = React.useState('Encargado de Turnos');
+            const [startDate, setStartDate] = React.useState('2026-11-02');
+            const [endDate, setEndDate] = React.useState('2026-11-08');
+
             const [collaborators, setCollaborators] = React.useState([
                 { id: '1', name: 'Juan Pérez', role: 'Operador Pista' },
                 { id: '2', name: 'María Gómez', role: 'Supervisora' },
@@ -93,6 +122,10 @@
                 delete newSch[id];
                 setSchedule(newSch);
                 showMsg(`Colaborador ${name} eliminado.`, 'error');
+            };
+
+            const handleUpdateCollabField = (id, field, value) => {
+                setCollaborators(collaborators.map(c => c.id === id ? { ...c, [field]: value } : c));
             };
 
             const handleManualChange = (collabId, dayId, shiftKey) => {
@@ -175,15 +208,14 @@
             };
 
             return (
-                <div className="min-h-screen p-4 max-w-7xl mx-auto space-y-6">
+                <div className="min-h-screen p-4 max-w-7xl mx-auto space-y-6 print-container">
                     {notification && (
-                        <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-xl shadow-xl text-sm font-bold border ${
-                            notification.type === 'error' ? 'bg-rose-50 text-[#E30613] border-rose-300' : 'bg-emerald-50 text-[#008751] border-emerald-300'
-                        }`}>
+                        <div className="fixed top-4 right-4 z-50 px-4 py-3 rounded-xl shadow-xl text-sm font-bold border bg-emerald-50 text-[#008751] border-emerald-300 no-print">
                             {notification.msg}
                         </div>
                     )}
 
+                    {/* HEADER PUMA ENERGY */}
                     <header className="bg-white p-4 rounded-2xl shadow-sm border flex flex-col md:flex-row justify-between items-center gap-4">
                         <div className="flex items-center space-x-3">
                             <div className="w-11 h-11 rounded-xl bg-[#008751] flex items-center justify-center text-white font-black text-2xl shadow-md border-2 border-[#E30613]">
@@ -193,11 +225,32 @@
                                 <h1 className="text-lg font-black text-slate-900 tracking-tight uppercase">
                                     PUMA <span className="text-[#E30613]">ENERGY</span>
                                 </h1>
-                                <p className="text-xs text-slate-500 font-medium">Gestión de Turnos (Plantilla Activa: {collaborators.length} Colaboradores)</p>
+                                <input 
+                                    type="text" 
+                                    value={stationName} 
+                                    onChange={e => setStationName(e.target.value)} 
+                                    className="text-xs font-bold text-slate-700 bg-transparent border-b border-dashed border-slate-300 outline-none w-full"
+                                    placeholder="Nombre de la Estación"
+                                />
                             </div>
                         </div>
 
-                        <div className="flex items-center space-x-2 flex-wrap gap-y-2">
+                        {/* Datos de planeación y fechas visibles en pantalla y PDF */}
+                        <div className="flex flex-col sm:flex-row items-center gap-3 text-xs">
+                            <div className="flex items-center space-x-1.5 bg-slate-50 px-3 py-1.5 rounded-xl border">
+                                <span className="font-bold text-slate-600">Desde:</span>
+                                <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="font-semibold bg-transparent outline-none" />
+                                <span className="font-bold text-slate-600">Hasta:</span>
+                                <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="font-semibold bg-transparent outline-none" />
+                            </div>
+                            <div className="flex items-center space-x-1.5 bg-slate-50 px-3 py-1.5 rounded-xl border">
+                                <span className="font-bold text-slate-600">Encargado:</span>
+                                <input type="text" value={managerName} onChange={e => setManagerName(e.target.value)} className="font-semibold bg-transparent outline-none w-28" />
+                            </div>
+                        </div>
+
+                        {/* Botones de acción */}
+                        <div className="flex items-center space-x-2 no-print">
                             <button
                                 onClick={exportToPDF}
                                 className="bg-slate-800 hover:bg-slate-900 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 shadow"
@@ -221,7 +274,7 @@
 
                     {/* MODAL CONFIGURACIÓN AUTOMÁTICA */}
                     {isModalOpen && (
-                        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 no-print">
                             <div className="bg-white rounded-2xl p-6 max-w-md w-full space-y-4 shadow-2xl">
                                 <h3 className="font-bold text-slate-900 text-base border-b pb-2">Configurar Cantidad por Turno</h3>
                                 
@@ -260,7 +313,7 @@
 
                     {/* MODAL EDITAR HORAS */}
                     {isSettingsOpen && (
-                        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 no-print">
                             <div className="bg-white rounded-2xl p-6 max-w-lg w-full space-y-4 shadow-2xl">
                                 <h3 className="font-bold text-slate-900 text-base border-b pb-2">Editar Horas de Entrada y Salida</h3>
                                 <div className="space-y-3 text-xs">
@@ -285,8 +338,8 @@
                     )}
 
                     {/* GESTIÓN DE PLANTILLA */}
-                    <div className="bg-white rounded-2xl shadow-sm border p-4 space-y-4">
-                        <h2 className="text-xs font-black uppercase text-slate-500 tracking-wider">Administrar Plantilla (Base 6 Colaboradores)</h2>
+                    <div className="bg-white rounded-2xl shadow-sm border p-4 space-y-4 no-print">
+                        <h2 className="text-xs font-black uppercase text-slate-500 tracking-wider">Administrar Plantilla (Agregar o Quitar Colaboradores)</h2>
                         <form onSubmit={handleAddCollab} className="flex flex-col sm:flex-row gap-2">
                             <input type="text" placeholder="Nombre del colaborador" value={newName} onChange={e => setNewName(e.target.value)} className="border rounded-xl px-3 py-2 text-xs flex-1 outline-none focus:ring-2 focus:ring-[#008751]" />
                             <input type="text" placeholder="Puesto / Rol" value={newRole} onChange={e => setNewRole(e.target.value)} className="border rounded-xl px-3 py-2 text-xs flex-1 outline-none focus:ring-2 focus:ring-[#008751]" />
@@ -296,6 +349,11 @@
 
                     {/* MATRIZ DE HORARIOS */}
                     <div className="bg-white rounded-2xl shadow-sm border p-4 overflow-x-auto">
+                        <div className="hidden print:block mb-4 text-center">
+                            <h2 className="text-sm font-black uppercase">PUMA ENERGY - {stationName}</h2>
+                            <p className="text-xs">Planeación de Turnos | Período: {startDate} al {endDate} | Encargado: {managerName}</p>
+                        </div>
+
                         <table className="w-full text-left border-collapse text-xs">
                             <thead>
                                 <tr className="border-b bg-slate-50 text-slate-600">
@@ -303,15 +361,27 @@
                                     {days.map(d => (
                                         <th key={d.id} className="p-3 font-bold text-center uppercase">{d.name}</th>
                                     ))}
-                                    <th className="p-3 font-bold text-center uppercase">Acción</th>
+                                    <th className="p-3 font-bold text-center uppercase no-print">Acción</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y text-slate-700">
                                 {collaborators.map(c => (
                                     <tr key={c.id} className="hover:bg-slate-50/80">
                                         <td className="p-3 font-semibold text-slate-900">
-                                            {c.name}
-                                            <div className="text-[10px] text-slate-400 font-normal">{c.role}</div>
+                                            <input 
+                                                type="text" 
+                                                value={c.name} 
+                                                onChange={e => handleUpdateCollabField(c.id, 'name', e.target.value)}
+                                                className="w-full font-bold bg-transparent outline-none focus:bg-slate-100 rounded px-1"
+                                            />
+                                            <div className="text-[10px] text-slate-400 font-normal">
+                                                <input 
+                                                    type="text" 
+                                                    value={c.role} 
+                                                    onChange={e => handleUpdateCollabField(c.id, 'role', e.target.value)}
+                                                    className="w-full bg-transparent outline-none focus:bg-slate-100 rounded px-1"
+                                                />
+                                            </div>
                                         </td>
                                         {days.map(d => {
                                             const shiftKey = schedule[c.id]?.[d.id] || 'OFF';
@@ -335,7 +405,7 @@
                                                 </td>
                                             );
                                         })}
-                                        <td className="p-2 text-center">
+                                        <td className="p-2 text-center no-print">
                                             <button onClick={() => handleDeleteCollab(c.id, c.name)} className="text-rose-500 hover:text-rose-700 font-bold text-xs p-1" title="Eliminar colaborador">🗑️</button>
                                         </td>
                                     </tr>
