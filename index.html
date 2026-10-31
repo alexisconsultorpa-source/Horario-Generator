@@ -14,12 +14,12 @@
     <style>
         @media print {
             @page {
-                size: letter portrait;
-                margin: 0.5in;
+                size: letter landscape;
+                margin: 0.4in;
             }
             body { 
                 background: white !important; 
-                font-size: 11px !important;
+                font-size: 10px !important;
             }
             button, .no-print { 
                 display: none !important; 
@@ -47,7 +47,6 @@
 
     <script type="text/babel">
         function App() {
-            // Configuración de la Estación y Fechas
             const [stationName, setStationName] = React.useState('Puma Estación Central');
             const [managerName, setManagerName] = React.useState('Encargado de Turnos');
             const [startDate, setStartDate] = React.useState('2026-11-02');
@@ -87,15 +86,29 @@
 
             const [enableIntermediate, setEnableIntermediate] = React.useState(true);
 
-            const days = [
-                { id: 0, name: 'Lunes' },
-                { id: 1, name: 'Martes' },
-                { id: 2, name: 'Miércoles' },
-                { id: 3, name: 'Jueves' },
-                { id: 4, name: 'Viernes' },
-                { id: 5, name: 'Sábado' },
-                { id: 6, name: 'Domingo' }
-            ];
+            // Generar dinámicamente los días basados en el rango de fechas seleccionado
+            const dynamicDays = React.useMemo(() => {
+                const daysList = [];
+                let current = new Date(startDate + 'T00:00:00');
+                const last = new Date(endDate + 'T00:00:00');
+
+                let index = 0;
+                while (current <= last && index < 31) { // Límite de seguridad de 31 días
+                    const dateStr = current.toISOString().slice(0, 10);
+                    const dayName = current.toLocaleDateString('es-ES', { weekday: 'short' });
+                    const formattedDate = current.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' });
+                    
+                    daysList.push({
+                        id: index,
+                        dateStr: dateStr,
+                        name: `${dayName.charAt(0).toUpperCase() + dayName.slice(1)} ${formattedDate}`
+                    });
+
+                    current.setDate(current.getDate() + 1);
+                    index++;
+                }
+                return daysList;
+            }, [startDate, endDate]);
 
             const showMsg = (msg, type = 'success') => {
                 setNotification({ msg, type });
@@ -146,11 +159,11 @@
                 if (enableIntermediate) activeKeys.push('I');
 
                 collaborators.forEach((c, idx) => {
-                    const offDayIndex = idx % 7; 
+                    const offDayIndex = idx % dynamicDays.length; 
                     newSch[c.id][offDayIndex] = 'OFF';
                 });
 
-                days.forEach(day => {
+                dynamicDays.forEach(day => {
                     const dayId = day.id;
                     const available = collaborators.filter(c => newSch[c.id][dayId] !== 'OFF');
                     const assignedToday = {};
@@ -235,13 +248,14 @@
                             </div>
                         </div>
 
-                        {/* Datos de planeación y fechas visibles en pantalla y PDF */}
+                        {/* Datos de planeación y fechas */}
                         <div className="flex flex-col sm:flex-row items-center gap-3 text-xs">
                             <div className="flex items-center space-x-1.5 bg-slate-50 px-3 py-1.5 rounded-xl border">
                                 <span className="font-bold text-slate-600">Desde:</span>
                                 <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="font-semibold bg-transparent outline-none" />
                                 <span className="font-bold text-slate-600">Hasta:</span>
                                 <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="font-semibold bg-transparent outline-none" />
+                                <span className="text-slate-500 font-bold ml-1">({dynamicDays.length} días)</span>
                             </div>
                             <div className="flex items-center space-x-1.5 bg-slate-50 px-3 py-1.5 rounded-xl border">
                                 <span className="font-bold text-slate-600">Encargado:</span>
@@ -349,25 +363,25 @@
 
                     {/* MATRIZ DE HORARIOS */}
                     <div className="bg-white rounded-2xl shadow-sm border p-4 overflow-x-auto">
-                        <div className="hidden print:block mb-4 text-center">
-                            <h2 className="text-sm font-black uppercase">PUMA ENERGY - {stationName}</h2>
-                            <p className="text-xs">Planeación de Turnos | Período: {startDate} al {endDate} | Encargado: {managerName}</p>
+                        <div className="hidden print:block mb-3 text-center">
+                            <h2 className="text-xs font-black uppercase">PUMA ENERGY - {stationName}</h2>
+                            <p className="text-[10px]">Planeación de Turnos | Período: {startDate} al {endDate} ({dynamicDays.length} días) | Encargado: {managerName}</p>
                         </div>
 
                         <table className="w-full text-left border-collapse text-xs">
                             <thead>
                                 <tr className="border-b bg-slate-50 text-slate-600">
-                                    <th className="p-3 font-bold uppercase">Colaborador</th>
-                                    {days.map(d => (
-                                        <th key={d.id} className="p-3 font-bold text-center uppercase">{d.name}</th>
+                                    <th className="p-2.5 font-bold uppercase">Colaborador</th>
+                                    {dynamicDays.map(d => (
+                                        <th key={d.id} className="p-2.5 font-bold text-center uppercase whitespace-nowrap">{d.name}</th>
                                     ))}
-                                    <th className="p-3 font-bold text-center uppercase no-print">Acción</th>
+                                    <th className="p-2.5 font-bold text-center uppercase no-print">Acción</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y text-slate-700">
                                 {collaborators.map(c => (
                                     <tr key={c.id} className="hover:bg-slate-50/80">
-                                        <td className="p-3 font-semibold text-slate-900">
+                                        <td className="p-2.5 font-semibold text-slate-950 whitespace-nowrap">
                                             <input 
                                                 type="text" 
                                                 value={c.name} 
@@ -383,15 +397,15 @@
                                                 />
                                             </div>
                                         </td>
-                                        {days.map(d => {
+                                        {dynamicDays.map(d => {
                                             const shiftKey = schedule[c.id]?.[d.id] || 'OFF';
                                             const shiftObj = shiftTimes[shiftKey] || shiftTimes.OFF;
                                             return (
-                                                <td key={d.id} className="p-2 text-center">
+                                                <td key={d.id} className="p-1.5 text-center">
                                                     <select
                                                         value={shiftKey}
                                                         onChange={(e) => handleManualChange(c.id, d.id, e.target.value)}
-                                                        className={`text-xs font-bold px-2 py-1.5 rounded-lg border cursor-pointer ${shiftObj.color}`}
+                                                        className={`text-[11px] font-bold px-1.5 py-1 rounded-lg border cursor-pointer ${shiftObj.color}`}
                                                     >
                                                         {Object.keys(shiftTimes).map(k => {
                                                             if (k === 'I' && !enableIntermediate) return null;
