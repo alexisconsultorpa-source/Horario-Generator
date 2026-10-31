@@ -110,7 +110,7 @@
                 const activeKeys = ['M', 'T', 'N'];
                 if (enableIntermediate) activeKeys.push('I');
 
-                // 1. Asignar máximo un día libre por semana a cada colaborador (distribuido)
+                // 1. Asignar un día libre por semana a cada colaborador (distribuido)
                 collaborators.forEach((c, idx) => {
                     const offDayIndex = idx % 7; 
                     newSch[c.id][offDayIndex] = 'OFF';
@@ -122,7 +122,7 @@
                     const available = collaborators.filter(c => newSch[c.id][dayId] !== 'OFF');
                     const assignedToday = {};
 
-                    // REGLA: Si el día anterior hizo Noche, hoy obligatoriamente tiene LIBRE (máximo 1 libre por semana)
+                    // REGLA: Si el día anterior hizo Noche, hoy obligatoriamente tiene LIBRE
                     available.forEach(c => {
                         if (dayId > 0 && schedule[c.id]?.[dayId - 1] === 'N') {
                             newSch[c.id][dayId] = 'OFF';
@@ -282,7 +282,7 @@
 
                     {/* GESTIÓN DE PLANTILLA (AGREGAR / QUITAR) */}
                     <div className="bg-white rounded-2xl shadow-sm border p-4 space-y-4">
-                        <h2 className="text-xs font-black uppercase text-slate-500 tracking-wider">Administrar Plantilla (Agregar o Quitar Colaboradores)</h2>
+                        <h2 className="text-xs font-black uppercase text-slate-500 tracking-wider">Administrar Plantilla (Base 6 Colaboradores)</h2>
                         <form onSubmit={handleAddCollab} className="flex flex-col sm:flex-row gap-2">
                             <input type="text" placeholder="Nombre del colaborador" value={newName} onChange={e => setNewName(e.target.value)} className="border rounded-xl px-3 py-2 text-xs flex-1 outline-none focus:ring-2 focus:ring-[#008751]" />
                             <input type="text" placeholder="Puesto / Rol" value={newRole} onChange={e => setNewRole(e.target.value)} className="border rounded-xl px-3 py-2 text-xs flex-1 outline-none focus:ring-2 focus:ring-[#008751]" />
