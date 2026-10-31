@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Puma Energy - Turnos Rotativos</title>
+    <title>Puma Energy - Gestión de Turnos Rotativos</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- React & ReactDOM -->
@@ -12,27 +12,48 @@
     <!-- Babel para compilar JSX en el navegador -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
-<body class="bg-slate-50 text-slate-800">
+<body class="bg-slate-50 text-slate-800 font-sans">
     <div id="root"></div>
 
     <script type="text/babel">
         function App() {
+            // Base inicial de 6 colaboradores
             const [collaborators, setCollaborators] = React.useState([
-                { id: '1', name: 'Juan Pérez', role: 'Operador Pista', preferredOffDay: 6 },
-                { id: '2', name: 'María Gómez', role: 'Supervisora Estación', preferredOffDay: 0 },
-                { id: '3', name: 'Carlos López', role: 'Técnico Mantenimiento', preferredOffDay: 5 },
-                { id: '4', name: 'Ana Martínez', role: 'Cajera Senior', preferredOffDay: 6 },
-                { id: '5', name: 'Luis Rodríguez', role: 'Despachador', preferredOffDay: 2 },
-                { id: '6', name: 'Sofia Hernández', role: 'Técnica Tanques', preferredOffDay: 4 },
-                { id: '7', name: 'Diego Torres', role: 'Operador Tienda', preferredOffDay: 1 },
-                { id: '8', name: 'Elena Ramírez', role: 'Analista Seguridad', preferredOffDay: 3 },
-                { id: '9', name: 'Gabriel Flores', role: 'Operador Turno', preferredOffDay: 5 },
-                { id: '10', name: 'Lucía Morales', role: 'Supervisora Nocturna', preferredOffDay: 0 },
+                { id: '1', name: 'Juan Pérez', role: 'Operador Pista' },
+                { id: '2', name: 'María Gómez', role: 'Supervisora' },
+                { id: '3', name: 'Carlos López', role: 'Despachador' },
+                { id: '4', name: 'Ana Martínez', role: 'Cajera' },
+                { id: '5', name: 'Luis Rodríguez', role: 'Operador Pista' },
+                { id: '6', name: 'Sofia Hernández', role: 'Asistente' },
             ]);
 
             const [schedule, setSchedule] = React.useState({});
             const [isModalOpen, setIsModalOpen] = React.useState(false);
+            const [isSettingsOpen, setIsSettingsOpen] = React.useState(false);
             const [notification, setNotification] = React.useState(null);
+
+            // Inputs para agregar colaborador
+            const [newName, setNewName] = React.useState('');
+            const [newRole, setNewRole] = React.useState('');
+
+            // Configuración de horarios editables
+            const [shiftTimes, setShiftTimes] = React.useState({
+                M: { name: 'Mañana', start: '06:00', end: '14:00', color: 'bg-emerald-100 text-emerald-900 border-emerald-300' },
+                I: { name: 'Intermedio', start: '10:00', end: '18:00', color: 'bg-teal-100 text-teal-900 border-teal-300' },
+                T: { name: 'Tarde', start: '14:00', end: '22:00', color: 'bg-amber-100 text-amber-900 border-amber-300' },
+                N: { name: 'Noche', start: '22:00', end: '06:00', color: 'bg-rose-100 text-rose-900 border-rose-300' },
+                OFF: { name: 'Libre', start: 'Descanso', end: '', color: 'bg-slate-100 text-slate-700 border-slate-300' }
+            });
+
+            // Cuotas del generador automático
+            const [requirements, setRequirements] = React.useState({
+                M: 2,
+                I: 1,
+                T: 2,
+                N: 1 // Máximo 1 por turno estricto
+            });
+
+            const [enableIntermediate, setEnableIntermediate] = React.useState(true);
 
             const days = [
                 { id: 0, name: 'Lunes' },
@@ -44,90 +65,236 @@
                 { id: 6, name: 'Domingo' }
             ];
 
-            const shifts = {
-                M: { name: 'Mañana', time: '06:00 - 14:00', class: 'bg-emerald-100 text-emerald-900 border-emerald-300' },
-                T: { name: 'Tarde', time: '14:00 - 22:00', class: 'bg-amber-100 text-amber-900 border-amber-300' },
-                N: { name: 'Noche', time: '22:00 - 06:00', class: 'bg-rose-100 text-rose-900 border-rose-300' },
-                OFF: { name: 'Libre', time: 'Descanso', class: 'bg-slate-100 text-slate-700 border-slate-300' }
+            const showMsg = (msg, type = 'success') => {
+                setNotification({ msg, type });
+                setTimeout(() => setNotification(null), 3500);
             };
 
-            const showMsg = (msg) => {
-                setNotification(msg);
-                setTimeout(() => setNotification(null), 3000);
+            const handleAddCollab = (e) => {
+                e.preventDefault();
+                if (!newName.trim()) return;
+                const newItem = {
+                    id: Date.now().toString(),
+                    name: newName.trim(),
+                    role: newRole.trim() || 'Colaborador'
+                };
+                setCollaborators([...collaborators, newItem]);
+                setNewName('');
+                setNewRole('');
+                showMsg(`Colaborador ${newItem.name} agregado correctamente.`);
             };
 
-            const generateAuto = () => {
+            const handleDeleteCollab = (id, name) => {
+                setCollaborators(collaborators.filter(c => c.id !== id));
+                const newSch = { ...schedule };
+                delete newSch[id];
+                setSchedule(newSch);
+                showMsg(`Colaborador ${name} eliminado.`, 'error');
+            };
+
+            const handleManualChange = (collabId, dayId, shiftKey) => {
+                setSchedule(prev => ({
+                    ...prev,
+                    [collabId]: {
+                        ...(prev[collabId] || {}),
+                        [dayId]: shiftKey
+                    }
+                }));
+            };
+
+            // ALGORITMO AUTOMÁTICO INTELIGENTE
+            const executeAutoGeneration = () => {
                 const newSch = {};
-                collaborators.forEach(c => {
-                    newSch[c.id] = {};
-                    // Asignar día libre según preferencia
-                    days.forEach(d => {
-                        if (d.id === c.preferredOffDay) {
-                            newSch[c.id][d.id] = 'OFF';
-                        } else {
-                            // Asignación simple rotativa respetando tope de 1 noche
-                            newSch[c.id][d.id] = d.id % 3 === 0 ? 'M' : (d.id % 3 === 1 ? 'T' : 'N');
+                collaborators.forEach(c => { newSch[c.id] = {}; });
+
+                const activeKeys = ['M', 'T', 'N'];
+                if (enableIntermediate) activeKeys.push('I');
+
+                // 1. Asignar máximo 1 día libre por semana a cada colaborador (rotativo según su posición)
+                collaborators.forEach((c, idx) => {
+                    const offDayIndex = idx % 7; // Distribuye los libres en la semana
+                    newSch[c.id][offDayIndex] = 'OFF';
+                });
+
+                // 2. Recorrer día por día asegurando las reglas
+                days.forEach(day => {
+                    const dayId = day.id;
+                    const available = collaborators.filter(c => newSch[c.id][dayId] !== 'OFF');
+                    const assignedToday = {};
+
+                    // REGLA: Máximo 1 en Noche por día
+                    if (available.length > 0) {
+                        // Buscar quién salió de noche ayer para darle libre hoy obligatoriamente
+                        available.forEach(c => {
+                            if (dayId > 0 && schedule[c.id]?.[dayId - 1] === 'N') {
+                                newSch[c.id][dayId] = 'OFF'; // Obligatorio libre tras noche
+                                assignedToday[c.id] = 'OFF';
+                            }
+                        });
+
+                        // Asignar el único turno de Noche disponible hoy
+                        const nightCandidate = available.find(c => !assignedToday[c.id]);
+                        if (nightCandidate) {
+                            newSch[nightCandidate.id][dayId] = 'N';
+                            assignedToday[nightCandidate.id] = 'N';
+                        }
+                    }
+
+                    // Asignar Mañana, Tarde e Intermedio según cuotas
+                    activeKeys.forEach(shiftKey => {
+                        if (shiftKey === 'N') return; // Ya asignada la noche
+                        const needed = requirements[shiftKey] || 0;
+
+                        for (let i = 0; i < needed; i++) {
+                            const candidate = available.find(c => {
+                                if (assignedToday[c.id]) return false;
+                                // Verificar que no venga de noche el día anterior
+                                if (dayId > 0 && newSch[c.id][dayId - 1] === 'N') return false;
+                                return true;
+                            }) || available.find(c => !assignedToday[c.id]);
+
+                            if (candidate) {
+                                newSch[candidate.id][dayId] = shiftKey;
+                                assignedToday[candidate.id] = shiftKey;
+                            }
+                        }
+                    });
+
+                    // Rellenar cualquier espacio restante con Mañana o Libre
+                    available.forEach(c => {
+                        if (!assignedToday[c.id]) {
+                            const prev = dayId > 0 ? newSch[c.id][dayId - 1] : null;
+                            if (prev === 'N') {
+                                newSch[c.id][dayId] = 'OFF';
+                            } else {
+                                newSch[c.id][dayId] = 'M';
+                            }
                         }
                     });
                 });
+
                 setSchedule(newSch);
                 setIsModalOpen(false);
-                showMsg('¡Horarios generados correctamente con reglas Puma Energy!');
+                showMsg('¡Horarios generados respetando turnos nocturnos, libres y descansos!');
             };
 
             return (
-                <div className="min-h-screen p-4 max-w-6xl mx-auto space-y-4">
+                <div className="min-h-screen p-4 max-w-7xl mx-auto space-y-6">
+                    {/* Alertas */}
                     {notification && (
-                        <div className="fixed top-4 right-4 bg-emerald-600 text-white px-4 py-2 rounded-xl shadow-lg z-50 text-sm font-bold">
-                            {notification}
+                        <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-xl shadow-xl text-sm font-bold border ${
+                            notification.type === 'error' ? 'bg-rose-50 text-[#E30613] border-rose-300' : 'bg-emerald-50 text-[#008751] border-emerald-300'
+                        }`}>
+                            {notification.msg}
                         </div>
                     )}
 
-                    <header className="bg-white p-4 rounded-2xl shadow-sm border flex justify-between items-center">
+                    {/* HEADER PUMA ENERGY */}
+                    <header className="bg-white p-4 rounded-2xl shadow-sm border flex flex-col md:flex-row justify-between items-center gap-4">
                         <div className="flex items-center space-x-3">
-                            <div className="w-10 h-10 rounded-xl bg-[#008751] flex items-center justify-center text-white font-black text-xl">
+                            <div className="w-11 h-11 rounded-xl bg-[#008751] flex items-center justify-center text-white font-black text-2xl shadow-md border-2 border-[#E30613]">
                                 P
                             </div>
                             <div>
-                                <h1 className="text-base font-black text-slate-900 uppercase">
+                                <h1 className="text-lg font-black text-slate-900 tracking-tight uppercase">
                                     PUMA <span className="text-[#E30613]">ENERGY</span>
                                 </h1>
-                                <p className="text-xs text-slate-500 font-medium">Gestión Web de Turnos Rotativos</p>
+                                <p className="text-xs text-slate-500 font-medium">Gestión de Turnos Rotativos (Base: {collaborators.length} Colaboradores)</p>
                             </div>
                         </div>
-                        <button
-                            onClick={() => setIsModalOpen(true)}
-                            className="bg-[#008751] hover:bg-[#007043] text-white px-4 py-2 rounded-xl text-xs font-bold shadow transition"
-                        >
-                            ⚡ Generar Automático
-                        </button>
+
+                        <div className="flex items-center space-x-2">
+                            <button
+                                onClick={() => setIsSettingsOpen(true)}
+                                className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-1.5"
+                            >
+                                ⚙️ Editar Horarios
+                            </button>
+                            <button
+                                onClick={() => setIsModalOpen(true)}
+                                className="bg-[#008751] hover:bg-[#007043] text-white px-4 py-2 rounded-xl text-xs font-bold shadow-md transition flex items-center space-x-1.5"
+                            >
+                                ⚡ Generador Automático
+                            </button>
+                        </div>
                     </header>
 
-                    {/* Modal de Configuración */}
+                    {/* MODAL CONFIGURACIÓN AUTOMÁTICA */}
                     {isModalOpen && (
                         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                            <div className="bg-white rounded-2xl p-6 max-w-sm w-full space-y-4 shadow-2xl">
-                                <h3 className="font-bold text-slate-900 text-base">Configuración de Generación</h3>
-                                <p className="text-xs text-slate-500">Se aplicarán las reglas automáticas de descanso post-noche y el límite de 1 persona en el turno nocturno.</p>
-                                <div className="flex space-x-2 pt-2">
-                                    <button 
-                                        onClick={() => setIsModalOpen(false)}
-                                        className="flex-1 bg-slate-100 text-slate-600 py-2.5 rounded-xl text-xs font-bold"
-                                    >
-                                        Cancelar
-                                    </button>
-                                    <button 
-                                        onClick={generateAuto}
-                                        className="flex-1 bg-[#008751] text-white py-2.5 rounded-xl text-xs font-bold shadow"
-                                    >
-                                        Confirmar
-                                    </button>
+                            <div className="bg-white rounded-2xl p-6 max-w-md w-full space-y-4 shadow-2xl">
+                                <h3 className="font-bold text-slate-900 text-base border-b pb-2">Configurar Cuotas de Personal</h3>
+                                
+                                <div className="space-y-3 text-xs">
+                                    <div>
+                                        <label className="font-bold text-slate-700">Personal en Turno Mañana:</label>
+                                        <input type="number" min="1" max="4" value={requirements.M} onChange={e => setRequirements({...requirements, M: Number(e.target.value)})} className="w-full mt-1 border rounded-lg p-2 font-bold" />
+                                    </div>
+                                    <div className="flex items-center justify-between border-t pt-2">
+                                        <span className="font-bold text-slate-700">Incluir Turno Intermedio</span>
+                                        <input type="checkbox" checked={enableIntermediate} onChange={e => setEnableIntermediate(e.target.checked)} className="w-4 h-4 accent-[#008751]" />
+                                    </div>
+                                    {enableIntermediate && (
+                                        <div>
+                                            <label className="font-bold text-slate-700">Personal en Turno Intermedio:</label>
+                                            <input type="number" min="1" max="4" value={requirements.I} onChange={e => setRequirements({...requirements, I: Number(e.target.value)})} className="w-full mt-1 border rounded-lg p-2 font-bold" />
+                                        </div>
+                                    )}
+                                    <div className="border-t pt-2">
+                                        <label className="font-bold text-slate-700">Personal en Turno Tarde:</label>
+                                        <input type="number" min="1" max="4" value={requirements.T} onChange={e => setRequirements({...requirements, T: Number(e.target.value)})} className="w-full mt-1 border rounded-lg p-2 font-bold" />
+                                    </div>
+                                    <div className="border-t pt-2">
+                                        <label className="font-bold text-slate-700">Personal en Turno Noche (Estricto Máx. 1):</label>
+                                        <input type="number" value="1" disabled className="w-full mt-1 border rounded-lg p-2 bg-slate-100 text-slate-500 font-bold cursor-not-allowed" />
+                                    </div>
+                                </div>
+
+                                <div className="flex space-x-2 pt-3">
+                                    <button onClick={() => setIsModalOpen(false)} className="flex-1 bg-slate-100 text-slate-600 py-2.5 rounded-xl text-xs font-bold">Cancelar</button>
+                                    <button onClick={executeAutoGeneration} className="flex-1 bg-[#008751] text-white py-2.5 rounded-xl text-xs font-bold shadow">Generar Horario</button>
                                 </div>
                             </div>
                         </div>
                     )}
 
-                    {/* Tabla de Horarios */}
+                    {/* MODAL EDITAR HORARIOS */}
+                    {isSettingsOpen && (
+                        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                            <div className="bg-white rounded-2xl p-6 max-w-lg w-full space-y-4 shadow-2xl">
+                                <h3 className="font-bold text-slate-900 text-base border-b pb-2">Editar Horas de Entrada y Salida</h3>
+                                <div className="space-y-3 text-xs">
+                                    {Object.keys(shiftTimes).map(key => {
+                                        if (key === 'OFF') return null;
+                                        const s = shiftTimes[key];
+                                        return (
+                                            <div key={key} className="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border">
+                                                <span className="font-bold uppercase w-24">{s.name}</span>
+                                                <div className="flex items-center space-x-2">
+                                                    <input type="text" value={s.start} onChange={e => setShiftTimes({...shiftTimes, [key]: {...s, start: e.target.value}})} className="border rounded px-2 py-1 w-20 text-center font-bold" />
+                                                    <span>a</span>
+                                                    <input type="text" value={s.end} onChange={e => setShiftTimes({...shiftTimes, [key]: {...s, end: e.target.value}})} className="border rounded px-2 py-1 w-20 text-center font-bold" />
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                                <button onClick={() => setIsSettingsOpen(false)} className="w-full bg-[#008751] text-white py-2.5 rounded-xl text-xs font-bold shadow">Guardar Cambios</button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* GESTIÓN DE PLANTILLA (AGREGAR / QUITAR) */}
+                    <div className="bg-white rounded-2xl shadow-sm border p-4 space-y-4">
+                        <h2 className="text-xs font-black uppercase text-slate-500 tracking-wider">Gestión del Equipo de Trabajo</h2>
+                        <form onSubmit={handleAddCollab} className="flex flex-col sm:flex-row gap-2">
+                            <input type="text" placeholder="Nombre del colaborador" value={newName} onChange={e => setNewName(e.target.value)} className="border rounded-xl px-3 py-2 text-xs flex-1 outline-none focus:ring-2 focus:ring-[#008751]" />
+                            <input type="text" placeholder="Puesto / Rol" value={newRole} onChange={e => setNewRole(e.target.value)} className="border rounded-xl px-3 py-2 text-xs flex-1 outline-none focus:ring-2 focus:ring-[#008751]" />
+                            <button type="submit" className="bg-[#008751] hover:bg-[#007043] text-white px-4 py-2 rounded-xl text-xs font-bold transition shadow">＋ Agregar Colaborador</button>
+                        </form>
+                    </div>
+
+                    {/* MATRIZ DE TURNOS */}
                     <div className="bg-white rounded-2xl shadow-sm border p-4 overflow-x-auto">
                         <table className="w-full text-left border-collapse text-xs">
                             <thead>
@@ -136,6 +303,7 @@
                                     {days.map(d => (
                                         <th key={d.id} className="p-3 font-bold text-center uppercase">{d.name}</th>
                                     ))}
+                                    <th className="p-3 font-bold text-center uppercase">Acción</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y text-slate-700">
@@ -147,15 +315,29 @@
                                         </td>
                                         {days.map(d => {
                                             const shiftKey = schedule[c.id]?.[d.id] || 'OFF';
-                                            const shift = shifts[shiftKey];
+                                            const shiftObj = shiftTimes[shiftKey] || shiftTimes.OFF;
                                             return (
                                                 <td key={d.id} className="p-2 text-center">
-                                                    <span className={`inline-block px-2.5 py-1 rounded-lg border font-bold text-[11px] ${shift.class}`}>
-                                                        {shift.name}
-                                                    </span>
+                                                    <select
+                                                        value={shiftKey}
+                                                        onChange={(e) => handleManualChange(c.id, d.id, e.target.value)}
+                                                        className={`text-xs font-bold px-2 py-1.5 rounded-lg border cursor-pointer ${shiftObj.color}`}
+                                                    >
+                                                        {Object.keys(shiftTimes).map(k => {
+                                                            if (k === 'I' && !enableIntermediate) return null;
+                                                            return (
+                                                                <option key={k} value={k}>
+                                                                    {shiftTimes[k].name} ({k})
+                                                                </option>
+                                                            );
+                                                        })}
+                                                    </select>
                                                 </td>
                                             );
                                         })}
+                                        <td className="p-2 text-center">
+                                            <button onClick={() => handleDeleteCollab(c.id, c.name)} className="text-rose-500 hover:text-rose-700 font-bold text-xs p-1">🗑️</button>
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>
